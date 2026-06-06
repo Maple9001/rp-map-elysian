@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World Map</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #111827; font-family: Georgia, 'Times New Roman', serif; color: #c8b89a; min-height: 100vh; }
+  #app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  /* TOP BAR */
+  #topbar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 8px 14px;
+    background: linear-gradient(180deg, #1a1208 0%, #0f0c07 100%);
+    border-bottom: 1px solid #4a3a20; flex-shrink: 0;
+  }
+  #map-title { font-size: 20px; letter-spacing: 0.12em; text-transform: uppercase; color: #d4a843; text-shadow: 0 0 18px #d4a84366; }
+  #map-title span { font-size: 11px; color: #7a6a4a; margin-left: 8px; letter-spacing: 0.05em; text-transform: none; }
+  .sep { color: #4a3a20; }
+
+  /* BUTTONS */
+  .tool-btn {
+    font-size: 11px; padding: 3px 9px;
+    border: 1px solid #4a3a20; border-radius: 3px;
+    background: transparent; color: #9a8a6a; cursor: pointer;
+    font-family: Georgia, serif; letter-spacing: 0.04em; transition: all 0.15s;
+  }
+  .tool-btn:hover { background: #2a1f0f; color: #d4a843; border-color: #7a5a20; }
+  .tool-btn.active { background: #2a1f0f; color: #d4a843; border-color: #d4a843; }
+  .tool-btn.paint { border-color: #3a4a20; color: #7a9a5a; }
+  .tool-btn.paint:hover, .tool-btn.paint.active { background: #1a2a0f; color: #aad870; border-color: #aad870; }
+
+  /* MAIN LAYOUT */
+  #main { display: flex; flex: 1; overflow: hidden; }
+
+  /* CANVAS */
+  #canvas-wrap {
+    flex: 1; overflow: hidden; position: relative;
+    background: radial-gradient(ellipse at 30% 40%, #0d1a2a 0%, #070d14 60%, #030608 100%);
+  }
+  canvas { display: block; cursor: crosshair; }
+
+  /* TOOLTIP */
+  #tooltip {
+    position: absolute; pointer-events: none;
+    background: linear-gradient(135deg, #1a1208ee, #0f0c07ee);
+    border: 1px solid #5a4a28; border-radius: 4px;
+    padding: 10px 13px; max-width: 210px; display: none; z-index: 20;
+    box-shadow: 0 4px 20px #00000088;
+  }
+  #tt-name { font-size: 14px; color: #d4a843; margin-bottom: 2px; letter-spacing: 0.05em; }
+  #tt-type { font-size: 10px; color: #7a6a4a; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 5px; }
+  #tt-lore { font-size: 11px; color: #a09070; line-height: 1.5; }
+  #tt-status { font-size: 10px; margin-top: 5px; }
+
+  /* SIDE PANEL */
+  #panel {
+    width: 230px; flex-shrink: 0;
+    background: linear-gradient(180deg, #130f08 0%, #0c0906 100%);
+    border-left: 1px solid #3a2a10;
+    overflow-y: auto; padding: 14px 12px;
+  }
+  #panel::-webkit-scrollbar { width: 4px; }
+  #panel::-webkit-scrollbar-track { background: #0c0906; }
+  #panel::-webkit-scrollbar-thumb { background: #3a2a10; border-radius: 2px; }
+  #no-select { text-align: center; padding: 30px 10px; color: #5a4a2a; font-size: 12px; line-height: 1.8; }
+  #no-select .icon { font-size: 28px; display: block; margin-bottom: 8px; opacity: 0.4; }
+  .p-head { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: #7a5a20; margin: 14px 0 6px; border-top: 1px solid #2a1f0f; padding-top: 10px; }
+  .p-head:first-of-type { margin-top: 0; border-top: none; padding-top: 0; }
+  .p-label { font-size: 10px; color: #6a5a3a; margin-bottom: 3px; margin-top: 6px; letter-spacing: 0.04em; }
+  #panel input[type=text], #panel textarea, #panel select {
+    width: 100%; font-size: 12px; padding: 5px 7px;
+    border: 1px solid #3a2a10; border-radius: 3px;
+    background: #1a1208; color: #c8b89a;
+    font-family: Georgia, serif; resize: vertical;
+  }
+  #panel input[type=text]:focus, #panel textarea:focus, #panel select:focus { outline: none; border-color: #7a5a20; }
+  #panel textarea { min-height: 65px; line-height: 1.5; }
+  #panel select { height: 28px; }
+  #panel select option { background: #1a1208; }
+  .img-url-row { display: flex; gap: 4px; }
+  .img-url-row input { flex: 1; }
+  .icon-btn {
+    width: 28px; height: 28px; border: 1px solid #3a2a10; border-radius: 3px;
+    background: #1a1208; color: #9a7a3a; cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .icon-btn:hover { border-color: #7a5a20; color: #d4a843; }
+  #img-preview-wrap { margin-top: 7px; display: none; }
+  #img-preview { width: 100%; height: 80px; object-fit: cover; border-radius: 3px; display: block; }
+  #img-border-bar { height: 3px; border-radius: 0 0 3px 3px; }
+  #img-url-display { font-size: 9px; color: #5a4a2a; margin-top: 3px; word-break: break-all; }
+  .upload-alt {
+    margin-top: 5px; border: 1px dashed #3a2a10; border-radius: 3px;
+    padding: 7px; text-align: center; font-size: 11px; color: #5a4a2a; cursor: pointer;
+  }
+  .upload-alt:hover { background: #1a1208; color: #9a7a3a; border-color: #5a3a10; }
+  .btn-row { display: flex; gap: 5px; margin-top: 10px; }
+  .pbtn {
+    flex: 1; font-size: 11px; padding: 5px 0;
+    border: 1px solid #4a3a20; border-radius: 3px;
+    background: transparent; color: #9a8a6a; cursor: pointer;
+    font-family: Georgia, serif; transition: all 0.15s;
+  }
+  .pbtn:hover { background: #2a1f0f; color: #d4a843; }
+  .pbtn.primary { border-color: #7a5a20; color: #d4a843; }
+  .pbtn.primary:hover { background: #2a1f0f; }
+  .pbtn.red { border-color: #5a2020; color: #aa6060; }
+  .pbtn.red:hover { background: #2a0f0f; color: #dd8080; }
+  #hex-coords { font-size: 10px; color: #4a3a20; margin-top: 8px; text-align: center; }
+
+  /* BOTTOM BAR */
+  #bottombar {
+    padding: 6px 14px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    background: #0c0906; border-top: 1px solid #2a1f0f; flex-shrink: 0;
+  }
+  #coord-info { font-size: 11px; color: #4a3a20; margin-left: auto; font-family: Georgia, serif; }
+
+  /* LEGEND */
+  #legend-wrap {
+    display: flex; gap: 6px; flex-wrap: wrap; padding: 5px 14px;
+    background: #0a0806; border-top: 1px solid #1f1508; flex-shrink: 0;
+  }
+  .leg-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #6a5a3a; letter-spacing: 0.04em; }
+  .leg-sw { width: 11px; height: 11px; border-radius: 2px; flex-shrink: 0; }
+
+  /* EXPORT ROW */
+  #export-row {
+    display: flex; gap: 6px; padding: 5px 14px;
+    background: #080704; border-top: 1px solid #1a1208; flex-shrink: 0; flex-wrap: wrap;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div id="map-title">World Map <span>— Click a hex to edit</span></div>
+    <span class="sep">|</span>
+    <span style="font-size:11px;color:#5a4a2a;">Mode:</span>
+    <button class="tool-btn active" data-tool="view" onclick="setTool(this)">✦ Edit</button>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+    <div id="canvas-wrap">
+      <canvas id="hexmap"></canvas>
+      <div id="tooltip">
+        <div id="tt-name"></div>
+        <div id="tt-type"></div>
+        <div id="tt-lore"></div>
+        <div id="tt-status"></div>
+      </div>
+    </div>
+
+    <!-- SIDE PANEL -->
+    <div id="panel">
+      <div id="no-select">
+        <span class="icon">⬡</span>
+        Click any hex<br>to view &amp; edit<br>its details
+      </div>
+      <div id="edit-form" style="display:none;">
+        <div class="p-head">Location</div>
+        <div class="p-label">Name</div>
+        <input type="text" id="f-name" placeholder="Region or place name..." oninput="liveUpdate()">
+        <div class="p-label">Terrain</div>
+        <select id="f-terrain" onchange="liveUpdate()">
+          <option value="ocean">Ocean</option>
+          <option value="river">River</option>
+          <option value="plains">Plains</option>
+          <option value="forest">Forest</option>
+          <option value="mountain">Mountain</option>
+          <option value="desert">Desert</option>
+          <option value="swamp">Swamp</option>
+          <option value="tundra">Tundra</option>
+          <option value="city">City / Town</option>
+          <option value="dungeon">Dungeon / POI</option>
+          <option value="empty">Empty / Unset</option>
+        </select>
+        <div class="p-label">Status</div>
+        <select id="f-status" onchange="liveUpdate()">
+          <option value="normal">Normal</option>
+          <option value="visited">Visited</option>
+          <option value="dangerous">Dangerous</option>
+        </select>
+
+        <div class="p-head">Lore</div>
+        <textarea id="f-lore" placeholder="Lore, quest hooks, history, notes...&#10;This shows in the hover tooltip."></textarea>
+
+        <div class="p-head">Image</div>
+        <div class="p-label">Paste image URL (Imgur, Discord CDN…)</div>
+        <div class="img-url-row">
+          <input type="text" id="f-imgurl" placeholder="https://i.imgur.com/...">
+          <button class="icon-btn" onclick="loadImageURL()" title="Load">→</button>
+        </div>
+        <div id="img-preview-wrap">
+          <img id="img-preview" alt="Location preview">
+          <div id="img-border-bar"></div>
+          <div id="img-url-display"></div>
+        </div>
+        <div class="upload-alt" onclick="document.getElementById('img-upload').click()">
+          ↑ Or upload a local file
+        </div>
+        <input type="file" id="img-upload" accept="image/*" style="display:none" onchange="handleFileUpload(event)">
+
+        <div class="btn-row">
+          <button class="pbtn primary" id="save-btn" onclick="saveHex()">Save</button>
+          <button class="pbtn red" onclick="clearImg()">Clear image</button>
+        </div>
+        <div id="hex-coords"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAINT TOOLS -->
+  <div id="bottombar">
+    <span style="font-size:10px;color:#5a4a2a;letter-spacing:0.08em;">PAINT TERRAIN:</span>
+    <button class="tool-btn paint" data-tool="plains"   onclick="setTool(this)">Plains</button>
+    <button class="tool-btn paint" data-tool="forest"   onclick="setTool(this)">Forest</button>
+    <button class="tool-btn paint" data-tool="mountain" onclick="setTool(this)">Mountain</button>
+    <button class="tool-btn paint" data-tool="ocean"    onclick="setTool(this)">Ocean</button>
+    <button class="tool-btn paint" data-tool="river"    onclick="setTool(this)">River</button>
+    <button class="tool-btn paint" data-tool="desert"   onclick="setTool(this)">Desert</button>
+    <button class="tool-btn paint" data-tool="swamp"    onclick="setTool(this)">Swamp</button>
+    <button class="tool-btn paint" data-tool="tundra"   onclick="setTool(this)">Tundra</button>
+    <button class="tool-btn paint" data-tool="city"     onclick="setTool(this)">City</button>
+    <button class="tool-btn paint" data-tool="dungeon"  onclick="setTool(this)">Dungeon</button>
+    <button class="tool-btn paint" data-tool="empty"    onclick="setTool(this)">Clear</button>
+    <span id="coord-info">Col — · Row —</span>
+  </div>
+
+  <!-- LEGEND -->
+  <div id="legend-wrap"></div>
+
+  <!-- EXPORT -->
+  <div id="export-row">
+    <button class="tool-btn" onclick="exportJSON()">💾 Save map (JSON)</button>
+    <button class="tool-btn" onclick="document.getElementById('import-file').click()">📂 Load map (JSON)</button>
+    <button class="tool-btn" onclick="exportPlayerHTML()">🗺 Export player view (HTML)</button>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  TERRAIN DEFINITIONS
+//  Add new terrain: entry here + icon in ICONS + <option> in
+//  the select above + paint button in #bottombar
+// ═══════════════════════════════════════════════════════════
+const TERRAIN = {
+  empty:    { label:'Unset',      color:'#141820', stroke:'#1e2430', text:'#333850', borderColor:'#1e2430' },
+  ocean:    { label:'Ocean',      color:'#0d2840', stroke:'#1e6aaa', text:'#4a9acc', borderColor:'#1e6aaa' },
+  river:    { label:'River',      color:'#0f3d55', stroke:'#1a8aaa', text:'#4abbd0', borderColor:'#1a8aaa' },
+  plains:   { label:'Plains',     color:'#2a4a1a', stroke:'#5a9a38', text:'#88cc55', borderColor:'#5a9a38' },
+  forest:   { label:'Forest',     color:'#112811', stroke:'#2a6a2a', text:'#55aa55', borderColor:'#2a6a2a' },
+  mountain: { label:'Mountain',   color:'#3a3228', stroke:'#8a7055', text:'#b89870', borderColor:'#8a7055' },
+  desert:   { label:'Desert',     color:'#6a4a10', stroke:'#c4921a', text:'#e8b840', borderColor:'#c4921a' },
+  swamp:    { label:'Swamp',      color:'#1e3318', stroke:'#4a7730', text:'#77aa44', borderColor:'#4a7730' },
+  tundra:   { label:'Tundra',     color:'#2a3540', stroke:'#6a8899', text:'#99bbcc', borderColor:'#6a8899' },
+  city:     { label:'City/Town',  color:'#3a2608', stroke:'#cc7722', text:'#eea844', borderColor:'#cc7722' },
+  dungeon:  { label:'Dungeon',    color:'#28102a', stroke:'#882299', text:'#bb55cc', borderColor:'#882299' },
+};
+
+// ═══════════════════════════════════════════════════════════
+//  TERRAIN ICONS (shown when no image is set)
+// ═══════════════════════════════════════════════════════════
+const ICONS = {
+  empty:'·', ocean:'〰', river:'〜', plains:'·', forest:'♠',
+  mountain:'▲', desert:'∴', swamp:'≋', tundra:'❄', city:'⊕', dungeon:'†'
+};
+
+// ═══════════════════════════════════════════════════════════
+//  MAP SIZE
+//  COLS x ROWS = total hexes. HS = hex radius in pixels.
+// ═══════════════════════════════════════════════════════════
+const COLS = 42, ROWS = 30, HS = 22;
+const H = Math.sqrt(3) * HS;
+
+const canvas = document.getElementById('hexmap');
+const ctx = canvas.getContext('2d');
+let scale = 1, ox = 0, oy = 0;
+let isDragging = false, dragSt = {x:0,y:0}, dragOf = {x:0,y:0}, didDrag = false;
+let currentTool = 'view';
+let hoveredHex = null, selectedHex = null, pendingImgSrc = null;
+const imgCache = {};
+const hexData = {};
+
+// ═══════════════════════════════════════════════════════════
+//  INITIAL HEX DATA
+//  Every hex starts as 'empty'. Paint or import to build.
+// ═══════════════════════════════════════════════════════════
+function initHexData() {
+  for (let c = 0; c < COLS; c++)
+    for (let r = 0; r < ROWS; r++)
+      hexData[`${c},${r}`] = { terrain:'ocean', name:'', lore:'', status:'normal', imgUrl:'', col:c, row:r };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  NAMED LOCATIONS — edit this to set up your world
+//  Format: { c: col, r: row, n: 'Name', l: 'Lore', t: 'terrain' }
+// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+//  NAMED LOCATIONS — add your cities, dungeons, and POIs here
+//  once you have built your world. Format:
+//  { c: col, r: row, n: 'Name', l: 'Lore text', t: 'terrain' }
+//
+//  Example (uncomment to use):
+//  const named = [
+//    { c:20, r:15, n:'Starter Town', l:'Where adventurers begin.', t:'city' },
+//  ];
+//  for (const x of named) {
+//    const h = hexData[`${x.c},${x.r}`];
+//    if (h) { h.terrain = x.t; h.name = x.n; h.lore = x.l; }
+//  }
+// ═══════════════════════════════════════════════════════════
+function seedMap() {
+  // Blank slate — everything starts as ocean. Paint your world!
+}
+initHexData();
+seedMap();
+
+// ── Canvas sizing ─────────────────────────────────────────
+function resizeCanvas() {
+  const wrap = document.getElementById('canvas-wrap');
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  render();
+}
+
+// ── Hex geometry ──────────────────────────────────────────
+function hexCenter(c, r) {
+  return { x: 12 + c * HS * 2 * 0.75 + HS, y: 12 + r * H + (c % 2 === 1 ? H / 2 : 0) + HS };
+}
+
+function hexPath(cx, cy, sz) {
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 180 * (60 * i - 30);
+    ctx.lineTo(cx + sz * Math.cos(a), cy + sz * Math.sin(a));
+  }
+  ctx.closePath();
+}
+
+function lighten(hex, amt) {
+  const n = parseInt(hex.replace('#',''), 16);
+  return '#' + [(n>>16)+amt, ((n>>8)&0xff)+amt, (n&0xff)+amt]
+    .map(v => Math.min(255, Math.max(0, v)).toString(16).padStart(2,'0')).join('');
+}
+
+// ── Image loading ─────────────────────────────────────────
+function getImg(url) {
+  if (!url) return null;
+  if (imgCache[url]) return imgCache[url];
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = url;
+  img.onload = () => render();
+  imgCache[url] = img;
+  return img;
+}
+
+// ── Draw a single hex ─────────────────────────────────────
+function drawHex(c, r) {
+  const hex = hexData[`${c},${r}`];
+  const { x, y } = hexCenter(c, r);
+  const ter = TERRAIN[hex.terrain] || TERRAIN.empty;
+  const sz = HS - 0.5;
+  const isH = hoveredHex && hoveredHex.col === c && hoveredHex.row === r;
+  const isS = selectedHex && selectedHex.col === c && selectedHex.row === r;
+
+  const imgObj = hex.imgUrl ? getImg(hex.imgUrl) : null;
+  const imgReady = imgObj && imgObj.complete && imgObj.naturalWidth > 0;
+
+  hexPath(x, y, sz);
+
+  if (imgReady) {
+    ctx.save(); ctx.clip();
+    ctx.drawImage(imgObj, x - sz, y - sz, sz * 2, sz * 2);
+    ctx.restore();
+    if (isS || isH) {
+      hexPath(x, y, sz);
+      ctx.fillStyle = isS ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
+      ctx.fill();
+    }
+    hexPath(x, y, sz);
+    ctx.strokeStyle = isS ? '#ffffff' : isH ? lighten(ter.borderColor, 50) : ter.borderColor;
+    ctx.lineWidth = (isS ? 3 : 2.5) / scale;
+    ctx.stroke();
+  } else {
+    const fill = isS ? lighten(ter.color, 45) : isH ? lighten(ter.color, 20) : ter.color;
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = isS ? '#d4a843' : isH ? lighten(ter.stroke, 35) : ter.stroke;
+    ctx.lineWidth = (isS ? 1.5 : 0.8) / scale; ctx.stroke();
+    if (scale > 0.6 && hex.terrain !== 'empty') {
+      ctx.font = `${Math.max(9, 13 * Math.min(scale, 1))}px Georgia`;
+      ctx.fillStyle = ter.text; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(ICONS[hex.terrain] || '', x, y);
+    }
+  }
+
+  // Name label
+  if (hex.name && scale > 0.85) {
+    ctx.font = `bold ${Math.max(6, 7 * Math.min(scale, 1))}px Georgia`;
+    const tw = ctx.measureText(hex.name).width;
+    const ny = y + sz * 0.62;
+    ctx.fillStyle = 'rgba(0,0,0,0.72)';
+    ctx.fillRect(x - tw / 2 - 2, ny - 6, tw + 4, 12);
+    ctx.fillStyle = '#d4c8a0'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(hex.name, x, ny);
+  }
+
+  // Status markers
+  if (hex.status === 'dangerous') {
+    ctx.font = `bold ${Math.max(8, 10 * Math.min(scale, 1))}px Georgia`;
+    ctx.fillStyle = '#dd3333'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('!', x + sz * 0.58, y - sz * 0.58);
+  }
+  if (hex.status === 'visited') {
+    ctx.beginPath();
+    ctx.arc(x - sz * 0.58, y - sz * 0.58, 2.5 / scale, 0, Math.PI * 2);
+    ctx.fillStyle = '#44dd88'; ctx.fill();
+  }
+}
+
+// ── Full render ───────────────────────────────────────────
+function render() {
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#070d14'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+  ctx.save(); ctx.translate(ox, oy); ctx.scale(scale, scale);
+  for (let c = 0; c < COLS; c++)
+    for (let r = 0; r < ROWS; r++)
+      drawHex(c, r);
+  ctx.restore();
+}
+
+// ── Screen → hex ──────────────────────────────────────────
+function screenToHex(sx, sy) {
+  const wx = (sx - ox) / scale, wy = (sy - oy) / scale;
+  let best = null, bd = Infinity;
+  for (let c = 0; c < COLS; c++)
+    for (let r = 0; r < ROWS; r++) {
+      const { x, y } = hexCenter(c, r);
+      const d = (wx - x) ** 2 + (wy - y) ** 2;
+      if (d < bd) { bd = d; best = { col: c, row: r }; }
+    }
+  return best && bd < HS * HS * 1.3 ? best : null;
+}
+
+// ── Mouse events ──────────────────────────────────────────
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  if (isDragging) { ox = dragOf.x + (mx - dragSt.x); oy = dragOf.y + (my - dragSt.y); render(); return; }
+  const h = screenToHex(mx, my); hoveredHex = h; render();
+  const tt = document.getElementById('tooltip');
+  if (h) {
+    const hex = hexData[`${h.col},${h.row}`];
+    const ter = TERRAIN[hex.terrain] || TERRAIN.empty;
+    document.getElementById('tt-name').textContent = hex.name || ter.label;
+    document.getElementById('tt-type').textContent = ter.label;
+    document.getElementById('tt-lore').textContent = hex.lore || '';
+    const statusEl = document.getElementById('tt-status');
+    statusEl.textContent = hex.status && hex.status !== 'normal' ? '● ' + hex.status.charAt(0).toUpperCase() + hex.status.slice(1) : '';
+    statusEl.style.color = { visited:'#44dd88', dangerous:'#dd5555' }[hex.status] || '#888';
+    tt.style.display = 'block';
+    let tx = mx + 16, ty = my - 10;
+    if (tx + 220 > canvas.width) tx = mx - 225;
+    if (ty + 120 > canvas.height) ty = my - 125;
+    tt.style.left = tx + 'px'; tt.style.top = ty + 'px';
+    document.getElementById('coord-info').textContent = `Col ${h.col} · Row ${h.row}`;
+  } else { tt.style.display = 'none'; document.getElementById('coord-info').textContent = 'Col — · Row —'; }
+});
+
+canvas.addEventListener('mouseleave', () => { hoveredHex = null; document.getElementById('tooltip').style.display = 'none'; render(); });
+
+canvas.addEventListener('mousedown', e => {
+  const rect = canvas.getBoundingClientRect();
+  dragSt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  dragOf = { x: ox, y: oy }; isDragging = false; didDrag = false;
+  const onMove = ev => { if (Math.abs(ev.clientX - rect.left - dragSt.x) > 4 || Math.abs(ev.clientY - rect.top - dragSt.y) > 4) { isDragging = true; didDrag = true; } };
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', () => window.removeEventListener('mousemove', onMove), { once: true });
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (didDrag) { isDragging = false; return; }
+  const rect = canvas.getBoundingClientRect();
+  const h = screenToHex(e.clientX - rect.left, e.clientY - rect.top);
+  if (!h) return;
+  if (currentTool === 'view') {
+    selectedHex = (selectedHex && selectedHex.col === h.col && selectedHex.row === h.row) ? null : h;
+    openPanel(); render();
+  } else {
+    hexData[`${h.col},${h.row}`].terrain = currentTool;
+    render();
+  }
+  isDragging = false;
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const d = e.deltaY < 0 ? 1.12 : 0.9;
+  const ns = Math.max(0.25, Math.min(4, scale * d));
+  ox = mx - (mx - ox) * (ns / scale); oy = my - (my - oy) * (ns / scale); scale = ns; render();
+}, { passive: false });
+
+// ── Panel ─────────────────────────────────────────────────
+function openPanel() {
+  document.getElementById('no-select').style.display = 'none';
+  const ef = document.getElementById('edit-form');
+  if (!selectedHex) { ef.style.display = 'none'; document.getElementById('no-select').style.display = 'block'; return; }
+  ef.style.display = 'block';
+  const hex = hexData[`${selectedHex.col},${selectedHex.row}`];
+  document.getElementById('f-name').value = hex.name || '';
+  document.getElementById('f-terrain').value = hex.terrain || 'empty';
+  document.getElementById('f-lore').value = hex.lore || '';
+  document.getElementById('f-status').value = hex.status || 'normal';
+  document.getElementById('f-imgurl').value = hex.imgUrl || '';
+  document.getElementById('hex-coords').textContent = `Hex ${selectedHex.col}, ${selectedHex.row}`;
+  pendingImgSrc = hex.imgUrl || null;
+  updateImgPreview(hex.imgUrl, hex.terrain);
+}
+
+function updateImgPreview(url, terrain) {
+  const wrap = document.getElementById('img-preview-wrap');
+  const ter = TERRAIN[terrain] || TERRAIN.empty;
+  if (url) {
+    wrap.style.display = 'block';
+    document.getElementById('img-preview').src = url;
+    document.getElementById('img-border-bar').style.background = ter.borderColor;
+    const disp = document.getElementById('img-url-display');
+    disp.textContent = url.startsWith('data:') ? '(uploaded file)' : (url.length > 45 ? url.slice(0, 43) + '…' : url);
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function loadImageURL() {
+  const url = document.getElementById('f-imgurl').value.trim();
+  if (!url) return;
+  pendingImgSrc = url;
+  updateImgPreview(url, document.getElementById('f-terrain').value);
+}
+
+function handleFileUpload(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dataUrl = ev.target.result;
+    pendingImgSrc = dataUrl;
+    const img = new Image(); img.src = dataUrl; imgCache[dataUrl] = img;
+    document.getElementById('f-imgurl').value = '';
+    updateImgPreview(dataUrl, document.getElementById('f-terrain').value);
+  };
+  reader.readAsDataURL(file);
+}
+
+function liveUpdate() {
+  if (!selectedHex) return;
+  const hex = hexData[`${selectedHex.col},${selectedHex.row}`];
+  hex.name = document.getElementById('f-name').value;
+  hex.terrain = document.getElementById('f-terrain').value;
+  hex.lore = document.getElementById('f-lore').value;
+  hex.status = document.getElementById('f-status').value;
+  const ter = TERRAIN[hex.terrain] || TERRAIN.empty;
+  if (document.getElementById('img-preview-wrap').style.display !== 'none')
+    document.getElementById('img-border-bar').style.background = ter.borderColor;
+  render();
+}
+
+function saveHex() {
+  if (!selectedHex) return;
+  const hex = hexData[`${selectedHex.col},${selectedHex.row}`];
+  hex.name = document.getElementById('f-name').value;
+  hex.terrain = document.getElementById('f-terrain').value;
+  hex.lore = document.getElementById('f-lore').value;
+  hex.status = document.getElementById('f-status').value;
+  if (pendingImgSrc) { hex.imgUrl = pendingImgSrc; getImg(pendingImgSrc); }
+  render();
+  const btn = document.getElementById('save-btn');
+  btn.textContent = 'Saved ✓'; setTimeout(() => btn.textContent = 'Save', 1400);
+}
+
+function clearImg() {
+  if (!selectedHex) return;
+  hexData[`${selectedHex.col},${selectedHex.row}`].imgUrl = '';
+  pendingImgSrc = null;
+  document.getElementById('f-imgurl').value = '';
+  document.getElementById('img-preview-wrap').style.display = 'none';
+  render();
+}
+
+function setTool(btn) {
+  currentTool = btn.dataset.tool;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  canvas.style.cursor = currentTool === 'view' ? 'crosshair' : 'cell';
+}
+
+// ── Import / Export ───────────────────────────────────────
+function exportJSON() {
+  const exportData = {};
+  for (const [k, v] of Object.entries(hexData)) {
+    exportData[k] = { ...v };
+    // Base64 uploaded images are stripped to keep file size small.
+    // Remove the next line if you want uploaded images saved in the JSON.
+    if (exportData[k].imgUrl && exportData[k].imgUrl.startsWith('data:')) exportData[k].imgUrl = '';
+  }
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'worldmap.json'; a.click();
+}
+
+function handleImport(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      for (const key of Object.keys(data)) if (hexData[key]) Object.assign(hexData[key], data[key]);
+      for (const hex of Object.values(hexData)) if (hex.imgUrl) getImg(hex.imgUrl);
+      render();
+    } catch { alert('Could not read that file. Make sure it is a worldmap.json exported from this map.'); }
+  };
+  reader.readAsText(file);
+}
+
+function exportPlayerHTML() {
+  const data = JSON.stringify(hexData);
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>World Map</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#070d14;font-family:Georgia,serif;overflow:hidden;}
+#wrap{position:relative;width:100vw;height:100vh;}canvas{display:block;cursor:crosshair;}
+#tt{position:absolute;pointer-events:none;background:#1a1208ee;border:1px solid #5a4a28;border-radius:4px;padding:10px 13px;max-width:210px;display:none;z-index:10;font-size:12px;color:#c8b89a;}
+#tt-n{font-size:14px;color:#d4a843;margin-bottom:2px;}#tt-t{font-size:10px;color:#7a6a4a;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;}#tt-l{color:#a09070;line-height:1.5;}
+#info{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:11px;color:#4a3a20;letter-spacing:.05em;font-family:Georgia,serif;}
+</style></head><body><div id="wrap"><canvas id="c"></canvas>
+<div id="tt"><div id="tt-n"></div><div id="tt-t"></div><div id="tt-l"></div></div>
+<div id="info">Scroll to zoom · Drag to pan</div></div>
+<script>
+const D=${data};
+const T=${JSON.stringify(TERRAIN)};
+const IC=${JSON.stringify(ICONS)};
+const COLS=${COLS},ROWS=${ROWS},HS=${HS},SH=Math.sqrt(3)*HS;
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let sc=1,ox=0,oy=0,ic={};
+canvas.width=window.innerWidth;canvas.height=window.innerHeight;
+function gi(url){if(!url)return null;if(ic[url])return ic[url];const img=new Image();img.crossOrigin='anonymous';img.src=url;img.onload=render;ic[url]=img;return img;}
+function hc(c,r){return{x:12+c*HS*2*.75+HS,y:12+r*SH+(c%2?SH/2:0)+HS};}
+function hp(cx,cy,sz){ctx.beginPath();for(let i=0;i<6;i++){const a=Math.PI/180*(60*i-30);ctx.lineTo(cx+sz*Math.cos(a),cy+sz*Math.sin(a));}ctx.closePath();}
+function lx(h,a){const n=parseInt(h.replace('#',''),16);return'#'+[(n>>16)+a,((n>>8)&255)+a,(n&255)+a].map(v=>Math.min(255,Math.max(0,v)).toString(16).padStart(2,'0')).join('');}
+function render(){ctx.fillStyle='#070d14';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.save();ctx.translate(ox,oy);ctx.scale(sc,sc);
+for(let c=0;c<COLS;c++)for(let r=0;r<ROWS;r++){const h=D[c+','+r];const{x,y}=hc(c,r);const ter=T[h.terrain]||T.empty;const sz=HS-.5;
+const img=h.imgUrl?gi(h.imgUrl):null;const ir=img&&img.complete&&img.naturalWidth>0;
+hp(x,y,sz);
+if(ir){ctx.save();ctx.clip();ctx.drawImage(img,x-sz,y-sz,sz*2,sz*2);ctx.restore();hp(x,y,sz);ctx.strokeStyle=ter.borderColor;ctx.lineWidth=2.5/sc;ctx.stroke();}
+else{ctx.fillStyle=ter.color;ctx.fill();ctx.strokeStyle=ter.stroke;ctx.lineWidth=.8/sc;ctx.stroke();if(sc>.6&&h.terrain!=='empty'){ctx.font=Math.max(9,13*Math.min(sc,1))+'px Georgia';ctx.fillStyle=ter.text;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(IC[h.terrain]||'',x,y);}}
+if(h.name&&sc>.85){ctx.font='bold '+Math.max(6,7*Math.min(sc,1))+'px Georgia';const tw=ctx.measureText(h.name).width;const ny=y+sz*.62;ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(x-tw/2-2,ny-6,tw+4,12);ctx.fillStyle='#d4c8a0';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(h.name,x,ny);}
+if(h.status==='dangerous'){ctx.font='bold '+Math.max(8,10*Math.min(sc,1))+'px Georgia';ctx.fillStyle='#dd3333';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('!',x+sz*.58,y-sz*.58);}
+if(h.status==='visited'){ctx.beginPath();ctx.arc(x-sz*.58,y-sz*.58,2.5/sc,0,Math.PI*2);ctx.fillStyle='#44dd88';ctx.fill();}
+}ctx.restore();}
+function s2h(sx,sy){const wx=(sx-ox)/sc,wy=(sy-oy)/sc;let b=null,bd=Infinity;for(let c=0;c<COLS;c++)for(let r=0;r<ROWS;r++){const{x,y}=hc(c,r);const d=(wx-x)**2+(wy-y)**2;if(d<bd){bd=d;b={col:c,row:r};}}return b&&bd<HS*HS*1.3?b:null;}
+canvas.addEventListener('mousemove',e=>{const h=s2h(e.clientX,e.clientY);const tt=document.getElementById('tt');if(h){const hx=D[h.col+','+h.row];const ter=T[hx.terrain]||T.empty;document.getElementById('tt-n').textContent=hx.name||ter.label;document.getElementById('tt-t').textContent=ter.label;document.getElementById('tt-l').textContent=hx.lore||'';tt.style.display='block';let tx=e.clientX+16,ty=e.clientY-10;if(tx+220>canvas.width)tx=e.clientX-225;tt.style.left=tx+'px';tt.style.top=ty+'px';}else tt.style.display='none';});
+canvas.addEventListener('mouseleave',()=>document.getElementById('tt').style.display='none');
+let ds={x:0,y:0},df={x:0,y:0},dr=false;
+canvas.addEventListener('mousedown',e=>{ds={x:e.clientX,y:e.clientY};df={x:ox,y:oy};dr=false;});
+canvas.addEventListener('mousemove',e=>{if(e.buttons!==1)return;const dx=e.clientX-ds.x,dy=e.clientY-ds.y;if(Math.abs(dx)>3||Math.abs(dy)>3){dr=true;ox=df.x+dx;oy=df.y+dy;render();}});
+canvas.addEventListener('wheel',e=>{e.preventDefault();const d=e.deltaY<0?1.12:.9;const ns=Math.max(.25,Math.min(4,sc*d));ox=e.clientX-(e.clientX-ox)*(ns/sc);oy=e.clientY-(e.clientY-oy)*(ns/sc);sc=ns;render();},{passive:false});
+window.addEventListener('resize',()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight;render();});
+render();
+<\/script></body></html>`;
+  const blob = new Blob([html], { type: 'text/html' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'worldmap-players.html'; a.click();
+}
+
+// ── Legend ────────────────────────────────────────────────
+const leg = document.getElementById('legend-wrap');
+for (const [k, v] of Object.entries(TERRAIN)) {
+  if (k === 'empty') continue;
+  const el = document.createElement('div'); el.className = 'leg-item';
+  el.innerHTML = `<div class="leg-sw" style="background:${v.color};border:2px solid ${v.borderColor};"></div>${v.label}`;
+  leg.appendChild(el);
+}
+
+// ── Init ──────────────────────────────────────────────────
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+</script>
+</body>
+</html>
