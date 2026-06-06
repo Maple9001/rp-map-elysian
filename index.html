@@ -170,7 +170,7 @@
         <select id="f-terrain" onchange="liveUpdate()">
           <option value="ocean">Ocean</option>
           <option value="river">River</option>
-          <option value="plains">Plains</option>
+          <option value="haven">HAVEN</option>
           <option value="forest">Forest</option>
           <option value="mountain">Mountain</option>
           <option value="desert">Desert</option>
@@ -218,7 +218,7 @@
   <!-- PAINT TOOLS -->
   <div id="bottombar">
     <span style="font-size:10px;color:#5a4a2a;letter-spacing:0.08em;">PAINT TERRAIN:</span>
-    <button class="tool-btn paint" data-tool="plains"   onclick="setTool(this)">Plains</button>
+    <button class="tool-btn paint" data-tool="haven"   onclick="setTool(this)">Haven</button>
     <button class="tool-btn paint" data-tool="forest"   onclick="setTool(this)">Forest</button>
     <button class="tool-btn paint" data-tool="mountain" onclick="setTool(this)">Mountain</button>
     <button class="tool-btn paint" data-tool="ocean"    onclick="setTool(this)">Ocean</button>
@@ -255,7 +255,7 @@ const TERRAIN = {
   empty:    { label:'Unset',      color:'#141820', stroke:'#1e2430', text:'#333850', borderColor:'#1e2430' },
   ocean:    { label:'Ocean',      color:'#0d2840', stroke:'#1e6aaa', text:'#4a9acc', borderColor:'#1e6aaa' },
   river:    { label:'River',      color:'#0f3d55', stroke:'#1a8aaa', text:'#4abbd0', borderColor:'#1a8aaa' },
-  plains:   { label:'Plains',     color:'#2a4a1a', stroke:'#5a9a38', text:'#88cc55', borderColor:'#5a9a38' },
+  haven:    { label:'Haven',     color:'#2a4a1a', stroke:'#5a9a38', text:'#88cc55', borderColor:'#5a9a38' },
   forest:   { label:'Forest',     color:'#112811', stroke:'#2a6a2a', text:'#55aa55', borderColor:'#2a6a2a' },
   mountain: { label:'Mountain',   color:'#3a3228', stroke:'#8a7055', text:'#b89870', borderColor:'#8a7055' },
   desert:   { label:'Desert',     color:'#6a4a10', stroke:'#c4921a', text:'#e8b840', borderColor:'#c4921a' },
@@ -269,7 +269,7 @@ const TERRAIN = {
 //  TERRAIN ICONS (shown when no image is set)
 // ═══════════════════════════════════════════════════════════
 const ICONS = {
-  empty:'·', ocean:'', river:'〜', plains:'·', forest:'♠',
+  empty:'·', ocean:'', river:'〜', plains:'', forest:'♠',
   mountain:'▲', desert:'∴', swamp:'≋', tundra:'❄', city:'⊕', dungeon:'†'
 };
 
